@@ -114,6 +114,12 @@ def chat_panel():
             st.session_state['messages'].append(("You", user_input))
             response = get_chatbot_response(user_input)
             st.session_state['messages'].append(("Bot", response))
+            
+    for sender, message in st.session_state['messages']:
+        if sender == "You":
+            st.write(f"**{sender}:** {message}")
+        else:
+            st.write(f"**{sender}:** {message}")
 
 # Function to handle login
 def login_panel():
