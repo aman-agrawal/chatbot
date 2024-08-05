@@ -13,7 +13,8 @@ from langchain.schema import Document
 # from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
 # from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
 # from langchain_chroma import Chroma
-from langchain.vectorstores import FAISS
+# from langchain.vectorstores import FAISS
+from langchain_pinecone import PineconeVectorStore
 
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.llms import OpenAI
@@ -33,23 +34,29 @@ def init():
     os.environ["LANGCHAIN_TRACING_V2"] = secrets["LANGCHAIN_TRACING_V2"]
     os.environ["LANGCHAIN_API_KEY"] = secrets["LANGCHAIN_API_KEY"]
     os.environ["OPENAI_API_KEY"] = secrets["OPENAI_API_KEY"]
+    os.environ['PINECONE_API_KEY'] = secrets["PINECONE_API_KEY"]
 
     # llm = ChatGoogleGenerativeAI(model="gemini-pro")
     llm = OpenAI(model_name="gpt-3.5-turbo-instruct", openai_api_key = os.environ['OPENAI_API_KEY'])
 
-    print("Preparing Doc.")
+    print("Preparing Doc...")
 
     # Load JSON file and convert it to a list of documents
     with open("./data.json", "r") as f:
         json_data = json.load(f)
         docs = [Document(page_content=f"{key}: {value}") for key, value in json_data.items()]
 
-    print("Doc prep done.")
+    print("Doc prep done...")
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=500)
     splits = text_splitter.split_documents(docs)
+    embeddings = OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY'])
+    print(embeddings)
 
-    vectorstore = FAISS.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
+    index_name = "streamlit"
+
+    vectorstore = PineconeVectorStore.from_documents(documents=splits, index_name=index_name, embedding=embeddings)
+    # vectorstore = FAISS.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
     # vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
     # vectorstore = Chroma.from_documents(documents=splits, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
     retriever = vectorstore.as_retriever()

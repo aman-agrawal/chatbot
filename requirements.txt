@@ -7,3 +7,4 @@ openai==1.38.0
 tiktoken==0.7.0
 chromadb==0.5.5
 langchain-chroma==0.1.2
+langchain-pinecone==0.1.3
