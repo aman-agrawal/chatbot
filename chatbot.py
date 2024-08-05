@@ -2,13 +2,18 @@ import os
 import json
 import streamlit as st
 import toml
-from langchain_chroma import Chroma
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+# from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain.schema import Document
+
+from langchain.vectorstores import Chroma
+
+from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
+from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
+# from langchain_chroma import Chroma
 
 # Hardcoded admin credentials for simplicity
 ADMIN_USERNAME = "admin"
