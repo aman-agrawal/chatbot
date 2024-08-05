@@ -28,16 +28,21 @@ ADMIN_PASSWORD = "password"
 def init():
     if 'rag_chain' in st.session_state: return
 
-    secrets = toml.load("streamlit/secrets.toml")
+    # secrets = toml.load("streamlit/secrets.toml")
+    # os.environ["GOOGLE_API_KEY"] = secrets["GOOGLE_API_KEY"]
+    # os.environ["LANGCHAIN_TRACING_V2"] = secrets["LANGCHAIN_TRACING_V2"]
+    # os.environ["LANGCHAIN_API_KEY"] = secrets["LANGCHAIN_API_KEY"]
+    # # os.environ["OPENAI_API_KEY"] = st.secrets["secrets"]["OPENAI_API_KEY"]
+    # os.environ['PINECONE_API_KEY'] = secrets["PINECONE_API_KEY"]
 
-    os.environ["GOOGLE_API_KEY"] = secrets["GOOGLE_API_KEY"]
-    os.environ["LANGCHAIN_TRACING_V2"] = secrets["LANGCHAIN_TRACING_V2"]
-    os.environ["LANGCHAIN_API_KEY"] = secrets["LANGCHAIN_API_KEY"]
-    os.environ["OPENAI_API_KEY"] = secrets["OPENAI_API_KEY"]
-    os.environ['PINECONE_API_KEY'] = secrets["PINECONE_API_KEY"]
+    os.environ["GOOGLE_API_KEY"] = st.secrets["secrets"]["GOOGLE_API_KEY"]
+    os.environ["LANGCHAIN_TRACING_V2"] = st.secrets["secrets"]["LANGCHAIN_TRACING_V2"]
+    os.environ["LANGCHAIN_API_KEY"] = st.secrets["secrets"]["LANGCHAIN_API_KEY"]
+    os.environ["abc"] = st.secrets["secrets"]["OPENAI_API_KEY"]
+    os.environ['PINECONE_API_KEY'] = st.secrets["secrets"]["PINECONE_API_KEY"]
 
     # llm = ChatGoogleGenerativeAI(model="gemini-pro")
-    llm = OpenAI(model_name="gpt-3.5-turbo-instruct", openai_api_key = os.environ['OPENAI_API_KEY'])
+    llm = OpenAI(model_name="gpt-3.5-turbo-instruct", openai_api_key = os.environ['abc'])
 
     print("Preparing Doc...")
 
@@ -50,7 +55,7 @@ def init():
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=500)
     splits = text_splitter.split_documents(docs)
-    embeddings = OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY'])
+    embeddings = OpenAIEmbeddings(openai_api_key = os.environ['abc'])
     print(embeddings)
 
     index_name = "streamlit"
