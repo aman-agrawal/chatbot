@@ -7,20 +7,22 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain.schema import Document
 from langchain_core.prompts import PromptTemplate
+from langchain.schema import Document
+
+# Hardcoded admin credentials for simplicity
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "password"
 
 def init():
-    if 'rag_chain' in st.session_state:
-        return
-    
-    # Load secrets and set environment variables
+    if 'rag_chain' in st.session_state: return
+
     secrets = toml.load("streamlit/secrets.toml")
+
     os.environ["GOOGLE_API_KEY"] = secrets["GOOGLE_API_KEY"]
     os.environ["LANGCHAIN_TRACING_V2"] = secrets["LANGCHAIN_TRACING_V2"]
     os.environ["LANGCHAIN_API_KEY"] = secrets["LANGCHAIN_API_KEY"]
 
-    # Initialize the LLM
     llm = ChatGoogleGenerativeAI(model="gemini-pro")
 
     print("Preparing Doc.")
@@ -32,18 +34,15 @@ def init():
 
     print("Doc prep done.")
 
-    # Split documents and create a vector store
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=500)
     splits = text_splitter.split_documents(docs)
 
     vectorstore = Chroma.from_documents(documents=splits, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
     retriever = vectorstore.as_retriever()
 
-    # Define formatting function
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    # Define the prompt template
     template = """Use the following pieces of context to answer the question at the end.
     If you don't know the answer, answer it from your knowledge.
     Answer everything in English. Also answer if the question is asked in another language.
@@ -58,7 +57,6 @@ def init():
 
     custom_rag_prompt = PromptTemplate.from_template(template)
 
-    # Setup the RAG chain
     st.session_state['rag_chain'] = (
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
         | custom_rag_prompt
@@ -66,23 +64,48 @@ def init():
         | StrOutputParser()
     )
 
+def authenticate_user(username, password):
+    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+
+def add_question_to_json(question, answer):
+    with open("./data.json", "r") as f:
+        data = json.load(f)
+
+    data[question] = answer
+
+    with open("./data.json", "w") as f:
+        json.dump(data, f, indent=4)
+
+def logout():
+    st.session_state['authenticated'] = False
+    st.rerun()
+
 def get_chatbot_response(inp):
+    if 'rag_chain' not in st.session_state:
+        init()  # Initialize if not already done
     return st.session_state['rag_chain'].invoke(inp)
 
+def admin_panel():
+    st.subheader("Admin Panel")
 
-def display_chat():
-    for sender, message in st.session_state['messages']:
-        if sender == "You":
-            st.write(f"**{sender}:** {message}")
+    # Admin actions
+    new_question = st.text_input("New Question:")
+    new_answer = st.text_input("Answer:")
+    
+    if st.button("Add Question"):
+        if new_question and new_answer:
+            add_question_to_json(new_question, new_answer)
+            st.success("Question and answer added successfully.")
         else:
-            st.write(f"**{sender}:** {message}")
+            st.error("Please fill both fields.")
 
-def main():
-    st.title("Chatbot Interface")
-    init()
+    # Logout button
+    if st.button("Logout"):
+        logout()
 
-    if 'messages' not in st.session_state:
-        st.session_state['messages'] = []
+# Function to handle chat panel
+def chat_panel():
+    st.subheader("Chat")
 
     user_input = st.text_input("Question: ", "")
 
@@ -92,7 +115,43 @@ def main():
             response = get_chatbot_response(user_input)
             st.session_state['messages'].append(("Bot", response))
 
-    display_chat()
+# Function to handle login
+def login_panel():
+    st.subheader("Login")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if authenticate_user(username, password):
+            st.session_state['authenticated'] = True
+            st.success("Logged in successfully.")
+            st.rerun()
+        else:
+            st.error("Invalid username or password.")
+
+# Main Function
+def main():
+    st.title("Chatbot Interface")
+
+    # Initialize session state if necessary
+    if 'authenticated' not in st.session_state:
+        st.session_state['authenticated'] = False
+    if 'messages' not in st.session_state:
+        st.session_state['messages'] = []
+
+    init()  # Ensure that the necessary initialization is done
+
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        if st.session_state.get('authenticated', False):
+            admin_panel()
+        else:
+            login_panel()
+
+    with col2:
+        chat_panel()
 
 if __name__ == "__main__":
     main()
