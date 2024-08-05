@@ -3,5 +3,6 @@ toml==0.10.2
 langchain==0.2.12
 langchain-community==0.2.11
 langchainhub==0.1.20
-langchain-google-genai==1.0.8
+openai==1.38.0
+tiktoken==0.7.0
 chromadb==0.5.5

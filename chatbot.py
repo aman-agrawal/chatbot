@@ -5,15 +5,19 @@ import toml
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-# from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain.schema import Document
-
 from langchain.vectorstores import Chroma
 
-from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
-from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
+# from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+# from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
+# from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
 # from langchain_chroma import Chroma
+
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.llms import OpenAI
+
+
 
 # Hardcoded admin credentials for simplicity
 ADMIN_USERNAME = "admin"
@@ -27,8 +31,10 @@ def init():
     os.environ["GOOGLE_API_KEY"] = secrets["GOOGLE_API_KEY"]
     os.environ["LANGCHAIN_TRACING_V2"] = secrets["LANGCHAIN_TRACING_V2"]
     os.environ["LANGCHAIN_API_KEY"] = secrets["LANGCHAIN_API_KEY"]
+    os.environ["OPENAI_API_KEY"] = secrets["OPENAI_API_KEY"]
 
-    llm = ChatGoogleGenerativeAI(model="gemini-pro")
+    # llm = ChatGoogleGenerativeAI(model="gemini-pro")
+    llm = OpenAI(model_name="gpt-3.5-turbo-instruct", openai_api_key = os.environ['OPENAI_API_KEY'])
 
     print("Preparing Doc.")
 
@@ -42,7 +48,8 @@ def init():
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=500)
     splits = text_splitter.split_documents(docs)
 
-    vectorstore = Chroma.from_documents(documents=splits, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
+    vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
+    # vectorstore = Chroma.from_documents(documents=splits, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
     retriever = vectorstore.as_retriever()
 
     def format_docs(docs):
