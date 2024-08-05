@@ -7,12 +7,13 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import PromptTemplate
 from langchain.schema import Document
-from langchain.vectorstores import Chroma
+# from langchain.vectorstores import Chroma
 
 # from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 # from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
 # from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
 # from langchain_chroma import Chroma
+from langchain.vectorstores import FAISS
 
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.llms import OpenAI
@@ -48,7 +49,8 @@ def init():
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=500)
     splits = text_splitter.split_documents(docs)
 
-    vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
+    vectorstore = FAISS.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
+    # vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
     # vectorstore = Chroma.from_documents(documents=splits, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
     retriever = vectorstore.as_retriever()
 
