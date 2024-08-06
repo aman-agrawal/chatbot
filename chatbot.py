@@ -8,17 +8,14 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import PromptTemplate
 from langchain.schema import Document
 # from langchain.vectorstores import Chroma
-
 # from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 # from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
 # from langchain_google_genai.embeddings import GoogleGenerativeAIEmbeddings
 # from langchain_chroma import Chroma
 # from langchain.vectorstores import FAISS
 from langchain_pinecone import PineconeVectorStore
-
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.llms import OpenAI
-
 
 
 # Hardcoded admin credentials for simplicity
@@ -28,51 +25,33 @@ ADMIN_PASSWORD = "password"
 def init():
     if 'rag_chain' in st.session_state: return
 
-    # secrets = toml.load("streamlit/secrets.toml")
-    # os.environ["GOOGLE_API_KEY"] = secrets["GOOGLE_API_KEY"]
-    # os.environ["LANGCHAIN_TRACING_V2"] = secrets["LANGCHAIN_TRACING_V2"]
-    # os.environ["LANGCHAIN_API_KEY"] = secrets["LANGCHAIN_API_KEY"]
-    # # os.environ["OPENAI_API_KEY"] = st.secrets["secrets"]["OPENAI_API_KEY"]
-    # os.environ['PINECONE_API_KEY'] = secrets["PINECONE_API_KEY"]
+    developer_mode = os.getenv("DEVELOPER_MODE", "false").lower() == "true"
 
-    os.environ["GOOGLE_API_KEY"] = st.secrets["secrets"]["GOOGLE_API_KEY"]
-    os.environ["LANGCHAIN_TRACING_V2"] = st.secrets["secrets"]["LANGCHAIN_TRACING_V2"]
-    os.environ["LANGCHAIN_API_KEY"] = st.secrets["secrets"]["LANGCHAIN_API_KEY"]
-    os.environ["abc"] = st.secrets["secrets"]["OPENAI_API_KEY"]
-    os.environ['PINECONE_API_KEY'] = st.secrets["secrets"]["PINECONE_API_KEY"]
+    if developer_mode:
+        # Load secrets from local file in developer mode
+        secrets = toml.load("secrets.toml")
+        os.environ["GOOGLE_API_KEY"] = secrets["GOOGLE_API_KEY"]
+        os.environ["LANGCHAIN_TRACING_V2"] = secrets["LANGCHAIN_TRACING_V2"]
+        os.environ["LANGCHAIN_API_KEY"] = secrets["LANGCHAIN_API_KEY"]
+        os.environ["OPENAI_API_KEY"] = secrets["OPENAI_API_KEY"]
+        os.environ['PINECONE_API_KEY'] = secrets["PINECONE_API_KEY"]
+    else:
+        # Load secrets from Streamlit secrets manager in production mode
+        os.environ["GOOGLE_API_KEY"] = st.secrets["secrets"]["GOOGLE_API_KEY"]
+        os.environ["LANGCHAIN_TRACING_V2"] = st.secrets["secrets"]["LANGCHAIN_TRACING_V2"]
+        os.environ["LANGCHAIN_API_KEY"] = st.secrets["secrets"]["LANGCHAIN_API_KEY"]
+        os.environ["OPENAI_API_KEY"] = st.secrets["secrets"]["OPENAI_API_KEY"]
+        os.environ['PINECONE_API_KEY'] = st.secrets["secrets"]["PINECONE_API_KEY"]
 
     # llm = ChatGoogleGenerativeAI(model="gemini-pro")
-    llm = OpenAI(model_name="gpt-3.5-turbo-instruct", openai_api_key = os.environ['abc'])
-
+    llm = OpenAI(model_name="gpt-3.5-turbo-instruct", openai_api_key = os.environ['OPENAI_API_KEY'])
     print("Preparing Doc...")
-
-    # Load JSON file and convert it to a list of documents
-    with open("./data.json", "r") as f:
-        json_data = json.load(f)
-        docs = [Document(page_content=f"{key}: {value}") for key, value in json_data.items()]
-
-    print("Doc prep done...")
-
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=500)
-    splits = text_splitter.split_documents(docs)
-    embeddings = OpenAIEmbeddings(openai_api_key = os.environ['abc'])
-    print(embeddings)
-
-    index_name = "streamlit"
-
-    vectorstore = PineconeVectorStore.from_documents(documents=splits, index_name=index_name, embedding=embeddings)
-    # vectorstore = FAISS.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
-    # vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
-    # vectorstore = Chroma.from_documents(documents=splits, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
-    retriever = vectorstore.as_retriever()
-
-    def format_docs(docs):
-        return "\n\n".join(doc.page_content for doc in docs)
+    vectorstore, retriever = create_vector_store_and_retriever()
 
     template = """Use the following pieces of context to answer the question at the end.
     If you don't know the answer, answer it from your knowledge.
     Answer everything in English. Also answer if the question is asked in another language.
-    Use three sentences maximum and keep the answer as concise as possible.
+    Use five sentences maximum and keep the answer as concise as possible.
     Always say "thanks.!" at the end of the answer.
 
     {context}
@@ -90,6 +69,28 @@ def init():
         | StrOutputParser()
     )
 
+def create_vector_store_and_retriever():
+    # Load JSON file and convert it to a list of documents
+    with open("./data.json", "r") as f:
+        json_data = json.load(f)
+        docs = [Document(page_content=f"{key}: {value}") for key, value in json_data.items()]
+
+    print("Doc prep done...")
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=500)
+    splits = text_splitter.split_documents(docs)
+    embeddings = OpenAIEmbeddings(openai_api_key=os.environ['OPENAI_API_KEY'])
+    index_name = "streamlit"
+
+    vectorstore = PineconeVectorStore.from_documents(documents=splits, index_name=index_name, embedding=embeddings)
+    # vectorstore = FAISS.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
+    # vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings(openai_api_key = os.environ['OPENAI_API_KEY']))
+    # vectorstore = Chroma.from_documents(documents=splits, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
+    retriever = vectorstore.as_retriever()
+    return vectorstore, retriever
+
+def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
+
 def authenticate_user(username, password):
     return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
 
@@ -102,6 +103,18 @@ def add_question_to_json(question, answer):
     with open("./data.json", "w") as f:
         json.dump(data, f, indent=4)
 
+    # Update vector store and retriever
+    vectorstore, retriever = create_vector_store_and_retriever()
+
+    prompt_template = st.session_state['rag_chain'].steps[1]  # Access the existing prompt
+    llm = st.session_state['rag_chain'].steps[2]  # Access the existing LLM
+    st.session_state['rag_chain'] = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | prompt_template
+        | llm
+        | StrOutputParser()
+    )
+
 def logout():
     st.session_state['authenticated'] = False
     st.rerun()
@@ -113,17 +126,14 @@ def get_chatbot_response(inp):
 
 def admin_panel():
     st.subheader("Admin Panel")
-
-    # Admin actions
     new_question = st.text_input("New Question:")
     new_answer = st.text_input("Answer:")
-    
     if st.button("Add Question"):
-        if new_question and new_answer:
-            add_question_to_json(new_question, new_answer)
-            st.success("Question and answer added successfully.")
-        else:
-            st.error("Please fill both fields.")
+            if new_question and new_answer:
+                add_question_to_json(new_question, new_answer)
+                st.success("Question and answer added successfully.")
+            else:
+                st.error("Please fill both fields.")
 
     # Logout button
     if st.button("Logout"):
@@ -132,14 +142,12 @@ def admin_panel():
 # Function to handle chat panel
 def chat_panel():
     st.subheader("Chat")
-
     user_input = st.text_input("Question: ", "")
-
     if st.button("Send"):
-        if user_input:
-            response = get_chatbot_response(user_input)
-            st.session_state['messages'].append(("Bot", response))
-            st.session_state['messages'].append(("You", user_input))
+            if user_input:
+                response = get_chatbot_response(user_input)
+                st.session_state['messages'].append(("Bot", response))
+                st.session_state['messages'].append(("You", user_input))
 
     for sender, message in reversed(st.session_state['messages']):
         if sender == "You":
@@ -150,10 +158,8 @@ def chat_panel():
 # Function to handle login
 def login_panel():
     st.subheader("Login")
-
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
         if authenticate_user(username, password):
             st.session_state['authenticated'] = True
@@ -161,6 +167,7 @@ def login_panel():
             st.rerun()
         else:
             st.error("Invalid username or password.")
+
 
 # Main Function
 def main():
